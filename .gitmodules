@@ -1,0 +1,3 @@
+[submodule "src/httpebble-utils"]
+	path = src/httpebble-utils
+	url = git@github.com:smallstoneapps/httpebble-utils.git

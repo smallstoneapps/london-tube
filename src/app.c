@@ -46,6 +46,49 @@ typedef struct {
   char name[20];
 } TubeLine;
 
+#define NUM_LINES 13
+#define NUM_ICONS 3
+#define HTTP_COOKIE_STATUS 8823
+
+#define MENU_ICON_OK 0
+#define MENU_ICON_PROBLEM 1
+#define MENU_ICON_UNKNOWN 2
+
+#define STATE_UPDATING 0
+#define STATE_OK 1
+#define STATE_ERROR 2
+
+#define SECTION_LINES 0
+#define SECTION_OPTIONS 1
+
+#define FONT_ROW_HEADER 0
+#define FONT_ROW_BODY 1
+
+static void handle_init(AppContextRef ctx);
+static void window_load(Window *me);
+static void window_unload(Window *me);
+uint16_t menu_get_num_sections_callback(MenuLayer *me, void *data);
+uint16_t menu_get_num_rows_callback(MenuLayer *me, uint16_t section_index, void *data);
+int16_t menu_get_header_height_callback(MenuLayer *me, uint16_t section_index, void *data);
+static int16_t menu_get_cell_height_callback(MenuLayer *me, MenuIndex* cell_index, void *data);
+static void menu_draw_header_callback(GContext* ctx, const Layer *cell_layer, uint16_t section_index, void *data);
+static void menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuIndex *cell_index, void *data);
+static void menu_draw_line_row(GContext* layer, const Layer* cell_layer, MenuIndex* cell_index);
+static void menu_select_click_callback(MenuLayer *menu_layer, MenuIndex *cell_index, void *callback_context);
+static void do_status_request();
+static void http_failure(int32_t cookie, int http_status, void* context);
+static void http_success(int32_t cookie, int http_status, DictionaryIterator* received, void* context);
+static void http_reconnect(void* context);
+int xatoi (char** str, long* res);
+TubeLine* get_line_by_code(const char* code);
+static void draw_tube_line(GContext* ctx, const Layer* cell_layer, TubeLine* line);
+static void draw_tfl_single_line(GContext* ctx, char* text);
+
+Window window;
+MenuLayer layer_menu;
+HeapBitmap menu_icons[NUM_ICONS];
+GFont fonts[2];
+
 static TubeLine lines[] = {
   { "BL\0", 0, "Bakerloo" },
   { "CE\0", 0, "Central" },
@@ -62,46 +105,8 @@ static TubeLine lines[] = {
   { "WC\0", 0, "Waterloo & City" }
 };
 
-#define NUM_LINES 13
-
-#define HTTP_COOKIE_STATUS 8823
-
-Window window;
-MenuLayer layer_menu;
-
-HeapBitmap menu_icons[3];
-#define MENU_ICON_OK 0
-#define MENU_ICON_PROBLEM 1
-#define MENU_ICON_UNKNOWN 2
-
-#define STATE_UPDATING 0
-#define STATE_OK 1
-#define STATE_ERROR 2
-
-#define SECTION_LINES 0
-#define SECTION_OPTIONS 1
-
-void handle_init(AppContextRef ctx);
-void window_load(Window *me);
-void window_unload(Window *me);
-uint16_t menu_get_num_sections_callback(MenuLayer *me, void *data);
-uint16_t menu_get_num_rows_callback(MenuLayer *me, uint16_t section_index, void *data);
-int16_t menu_get_header_height_callback(MenuLayer *me, uint16_t section_index, void *data);
-void menu_draw_header_callback(GContext* ctx, const Layer *cell_layer, uint16_t section_index, void *data);
-void menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuIndex *cell_index, void *data);
-void menu_select_click_callback(MenuLayer *menu_layer, MenuIndex *cell_index, void *callback_context);
-void do_status_request();
-TubeLine* get_line_by_code(const char* code);
-
-int xatoi (char** str, long* res);
 int state = STATE_UPDATING;
-
 char* line_order = "BLCECIDIDLHCJLMENOOVPIVIWC";
-
-void http_reconnect(void* context);
-void http_location(float latitude, float longitude, float altitude, float accuracy, void* context);
-void http_failure(int32_t cookie, int http_status, void* context);
-void http_success(int32_t cookie, int http_status, DictionaryIterator* received, void* context);
 
 void pbl_main(void *params) {
 
@@ -147,6 +152,8 @@ void handle_init(AppContextRef ctx) {
     .unload = window_unload,
   });
 
+  fonts[FONT_ROW_HEADER] = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_TFL_BOLD_18));
+  fonts[FONT_ROW_BODY] = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_TFL_15));
 }
 
 void window_load(Window* me) {
@@ -161,6 +168,7 @@ void window_load(Window* me) {
     .get_num_sections = menu_get_num_sections_callback,
     .get_num_rows = menu_get_num_rows_callback,
     .get_header_height = menu_get_header_height_callback,
+    .get_cell_height = menu_get_cell_height_callback,
     .draw_header = menu_draw_header_callback,
     .draw_row = menu_draw_row_callback,
     .select_click = menu_select_click_callback
@@ -221,6 +229,10 @@ int16_t menu_get_header_height_callback(MenuLayer *me, uint16_t section_index, v
   return MENU_CELL_BASIC_HEADER_HEIGHT;
 }
 
+int16_t menu_get_cell_height_callback(MenuLayer *me, MenuIndex* cell_index, void *data) {
+  return 40;
+}
+
 void menu_draw_header_callback(GContext* ctx, const Layer *cell_layer, uint16_t section_index, void *data) {
   switch (section_index) {
     case SECTION_LINES: {
@@ -255,53 +267,24 @@ void menu_draw_header_callback(GContext* ctx, const Layer *cell_layer, uint16_t 
 
 void menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuIndex *cell_index, void *data) {
   switch (cell_index->section) {
-    case 0: {
-      char status_label[50];
-      GBitmap* bmp;
-
-      switch (lines[cell_index->row].status) {
-        case 0:
-          strcpy(status_label, "Getting Status");
-          bmp = &menu_icons[MENU_ICON_UNKNOWN].bmp;
-        break;
-        case 1:
-          strcpy(status_label, "Good Service");
-          bmp = &menu_icons[MENU_ICON_OK].bmp;
-        break;
-        case 2:
-          strcpy(status_label, "Part Closure");
-          bmp = &menu_icons[MENU_ICON_PROBLEM].bmp;
-        break;
-        case 4:
-          strcpy(status_label, "Minor Delays");
-          bmp = &menu_icons[MENU_ICON_PROBLEM].bmp;
-        break;
-        case 8:
-          strcpy(status_label, "Severe Delays");
-          bmp = &menu_icons[MENU_ICON_PROBLEM].bmp;
-        break;
-        case 12:
-          strcpy(status_label, "Severe & Minor Delays");
-          bmp = &menu_icons[MENU_ICON_PROBLEM].bmp;
-        break;
-        default:
-          strcpy(status_label, "Unknown Status");
-          bmp = &menu_icons[MENU_ICON_UNKNOWN].bmp;
-      }
-      menu_cell_basic_draw(ctx, cell_layer, lines[cell_index->row].name, status_label, bmp);
-    }
+    case SECTION_LINES:
+      menu_draw_line_row(ctx, cell_layer, cell_index);
     break;
-    case 1: {
+    case SECTION_OPTIONS: {
       switch (cell_index->row) {
         case 0:
-          menu_cell_basic_draw(ctx, cell_layer, "Refresh", "Updates the Tube status.", NULL);
+          draw_tfl_single_line(ctx, "Refresh Lines");
         break;
         case 1:
-          menu_cell_basic_draw(ctx, cell_layer, "Say Thanks", "Thanks the developer.", NULL);
+          draw_tfl_single_line(ctx, "Thank The Dev");
         break;
       }
     }
   }
+}
+
+static void menu_draw_line_row(GContext* ctx, const Layer* cell_layer, MenuIndex* cell_index) {
+  draw_tube_line(ctx, cell_layer, &lines[cell_index->row]);
 }
 
 void menu_select_click_callback(MenuLayer *menu_layer, MenuIndex *cell_index, void *callback_context) {
@@ -346,7 +329,7 @@ void http_success(int32_t cookie, int http_status, DictionaryIterator* received,
       const char* order = tuple_order->value->cstring;
       const char* statuses = tuple_statuses->value->cstring;
 
-      for (int l = 0; l < 13; l += 1) {
+      for (int l = 0; l < NUM_LINES; l += 1) {
         char code_str[2];
         code_str[0] = order[(l * 2)];
         code_str[1] = order[(l * 2) + 1];
@@ -372,6 +355,52 @@ void http_success(int32_t cookie, int http_status, DictionaryIterator* received,
   }
 }
 
+void draw_tube_line(GContext* ctx, const Layer* cell_layer, TubeLine* line) {
+  char status_label[50];
+  GBitmap* bmp;
+
+  switch (line->status) {
+    case 0:
+      strcpy(status_label, "Getting Status");
+      bmp = &menu_icons[MENU_ICON_UNKNOWN].bmp;
+    break;
+    case 1:
+      strcpy(status_label, "Good Service");
+      bmp = &menu_icons[MENU_ICON_OK].bmp;
+    break;
+    case 2:
+      strcpy(status_label, "Part Closure");
+      bmp = &menu_icons[MENU_ICON_PROBLEM].bmp;
+    break;
+    case 4:
+      strcpy(status_label, "Minor Delays");
+      bmp = &menu_icons[MENU_ICON_PROBLEM].bmp;
+    break;
+    case 8:
+      strcpy(status_label, "Severe Delays");
+      bmp = &menu_icons[MENU_ICON_PROBLEM].bmp;
+    break;
+    case 12:
+      strcpy(status_label, "Severe & Minor Delays");
+      bmp = &menu_icons[MENU_ICON_PROBLEM].bmp;
+    break;
+    default:
+      strcpy(status_label, "Unknown Status");
+      bmp = &menu_icons[MENU_ICON_UNKNOWN].bmp;
+  }
+
+  graphics_context_set_text_color(ctx, GColorBlack);
+  graphics_draw_bitmap_in_rect(ctx, bmp, GRect(4, 22, 12, 14));
+  graphics_text_draw(ctx, line->name, fonts[FONT_ROW_HEADER], GRect(4, 0, 140, 18), 0, GTextAlignmentLeft, NULL);
+  graphics_text_draw(ctx, status_label, fonts[FONT_ROW_BODY], GRect(22, 19, 116, 18), 0, GTextAlignmentLeft, NULL);
+}
+
+static void draw_tfl_single_line(GContext* ctx, char* text) {
+  graphics_context_set_text_color(ctx, GColorBlack);
+  graphics_text_draw(ctx, text, fonts[FONT_ROW_HEADER], GRect(8, 8, 140, 18), 0, GTextAlignmentLeft, NULL);
+}
+
+
 TubeLine* get_line_by_code(const char* code) {
   for (int l = 0; l < NUM_LINES; l += 1) {
     if (strcmp(lines[l].code, code) == 0) {
@@ -387,15 +416,9 @@ TubeLine* get_line_by_code(const char* code) {
  * Since I'm only using it to convert to decimal numbers I should probably
  * rewrite it to make it simpler / more efficient.
  */
-
-int xatoi (     /* 0:Failed, 1:Successful */
-  char **str,   /* Pointer to pointer to the string */
-  long *res   /* Pointer to the valiable to store the value */
-)
-{
+int xatoi (char **str, long *res) {
   unsigned long val;
   unsigned char c, r, s = 0;
-
 
   *res = 0;
 

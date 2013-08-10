@@ -11,17 +11,29 @@
     {
       "defName": "MENU_OK",
       "type": "png",
-      "file": "images/menu_tick.png"
+      "file": "images/menu_tick_small.png"
     },
     {
       "defName": "MENU_PROBLEM",
       "type": "png",
-      "file": "images/menu_exclamation.png"
+      "file": "images/menu_exclamation_small.png"
     },
     {
       "defName": "MENU_UNKNOWN",
       "type": "png",
-      "file": "images/menu_question.png"
+      "file": "images/menu_question_small.png"
+    },
+    {
+      "defName": "FONT_TFL_BOLD_18",
+      "type": "font",
+      "file": "fonts/njfontsigning-medium.ttf",
+      "characterRegex": "[A-Za-z &']"
+    },
+    {
+      "defName": "FONT_TFL_15",
+      "type": "font",
+      "file": "fonts/NJFont-BookBold.ttf",
+      "characterRegex": "[A-Za-z ]"
     }
   ]
 }
