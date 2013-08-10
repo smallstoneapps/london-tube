@@ -46,6 +46,11 @@ typedef struct {
   char name[20];
 } TubeLine;
 
+ #define max(a,b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a > _b ? _a : _b; })
+
 #define NUM_LINES 13
 #define NUM_ICONS 3
 #define HTTP_COOKIE_STATUS 8823
@@ -80,6 +85,7 @@ static void http_failure(int32_t cookie, int http_status, void* context);
 static void http_success(int32_t cookie, int http_status, DictionaryIterator* received, void* context);
 static void http_reconnect(void* context);
 int xatoi (char** str, long* res);
+int NumberOfSetBits(int i);
 TubeLine* get_line_by_code(const char* code);
 static void draw_tube_line(GContext* ctx, const Layer* cell_layer, TubeLine* line);
 static void draw_tfl_single_line(GContext* ctx, char* text);
@@ -186,7 +192,7 @@ void do_status_request() {
   menu_layer_reload_data(&layer_menu);
 
   DictionaryIterator* body;
-  HTTPResult result = http_out_get("http://api.pblweb.com/london-tube/v1/status.php", true, HTTP_COOKIE_STATUS, &body);
+  HTTPResult result = http_out_get("http://api.pblweb.com/london-tube/v2/status.php", true, HTTP_COOKIE_STATUS, &body);
   if (result != HTTP_OK) {
     state = STATE_ERROR;
     menu_layer_reload_data(&layer_menu);
@@ -230,7 +236,7 @@ int16_t menu_get_header_height_callback(MenuLayer *me, uint16_t section_index, v
 }
 
 int16_t menu_get_cell_height_callback(MenuLayer *me, MenuIndex* cell_index, void *data) {
-  return 40;
+  return max(40, 24 + (16 * NumberOfSetBits(lines[cell_index->row].status)));
 }
 
 void menu_draw_header_callback(GContext* ctx, const Layer *cell_layer, uint16_t section_index, void *data) {
@@ -340,9 +346,10 @@ void http_success(int32_t cookie, int http_status, DictionaryIterator* received,
           continue;
         }
 
-        char* status_str = "00";
-        status_str[0] = statuses[(l * 2)];
-        status_str[1] = statuses[(l * 2) + 1];
+        char* status_str = "000";
+        status_str[0] = statuses[(l * 3)];
+        status_str[1] = statuses[(l * 3) + 1];
+        status_str[2] = statuses[(l * 3) + 2];
 
         long foo;
         xatoi(&status_str, &foo);
@@ -356,43 +363,89 @@ void http_success(int32_t cookie, int http_status, DictionaryIterator* received,
 }
 
 void draw_tube_line(GContext* ctx, const Layer* cell_layer, TubeLine* line) {
-  char status_label[50];
+  char status_label[100] = "";
   GBitmap* bmp;
 
-  switch (line->status) {
-    case 0:
-      strcpy(status_label, "Getting Status");
-      bmp = &menu_icons[MENU_ICON_UNKNOWN].bmp;
-    break;
-    case 1:
-      strcpy(status_label, "Good Service");
-      bmp = &menu_icons[MENU_ICON_OK].bmp;
-    break;
-    case 2:
-      strcpy(status_label, "Part Closure");
-      bmp = &menu_icons[MENU_ICON_PROBLEM].bmp;
-    break;
-    case 4:
-      strcpy(status_label, "Minor Delays");
-      bmp = &menu_icons[MENU_ICON_PROBLEM].bmp;
-    break;
-    case 8:
-      strcpy(status_label, "Severe Delays");
-      bmp = &menu_icons[MENU_ICON_PROBLEM].bmp;
-    break;
-    case 12:
-      strcpy(status_label, "Severe & Minor Delays");
-      bmp = &menu_icons[MENU_ICON_PROBLEM].bmp;
-    break;
-    default:
-      strcpy(status_label, "Unknown Status");
-      bmp = &menu_icons[MENU_ICON_UNKNOWN].bmp;
+  strcpy(status_label, "");
+
+  for (int s = 2; s <= 256; s *= 2) {
+    if (line->status & s) {
+      switch (s) {
+        case 2:
+          if (strlen(status_label) > 0) {
+            strcat(status_label, "\n");
+          }
+          strcat(status_label, "Minor Delays");
+        break;
+        case 4:
+          if (strlen(status_label) > 0) {
+            strcat(status_label, "\n");
+          }
+          strcat(status_label, "Bus Service");
+        break;
+        case 8:
+          if (strlen(status_label) > 0) {
+            strcat(status_label, "\n");
+          }
+          strcat(status_label, "Reduced Service");
+        break;
+        case 16:
+          if (strlen(status_label) > 0) {
+            strcat(status_label, "\n");
+          }
+          strcat(status_label, "Severe Delays");
+        break;
+        case 32:
+          if (strlen(status_label) > 0) {
+            strcat(status_label, "\n");
+          }
+          strcat(status_label, "Part Closure");
+        break;
+        case 64:
+          if (strlen(status_label) > 0) {
+            strcat(status_label, "\n");
+          }
+          strcat(status_label, "Planned Closure");
+        break;
+        case 128:
+          if (strlen(status_label) > 0) {
+            strcat(status_label, "\n");
+          }
+          strcat(status_label, "Part Suspended");
+        break;
+        case 256:
+          if (strlen(status_label) > 0) {
+            strcat(status_label, "\n");
+          }
+          strcat(status_label, "Suspended");
+        break;
+      }
+    }
+  }
+
+  if (strlen(status_label) == 0) {
+    switch (line->status) {
+      case 0:
+        strcpy(status_label, "Getting Status");
+        bmp = &menu_icons[MENU_ICON_UNKNOWN].bmp;
+      break;
+      case 1:
+        strcpy(status_label, "Good Service");
+        bmp = &menu_icons[MENU_ICON_OK].bmp;
+      break;
+      default:
+        strcpy(status_label, "Unknown Status");
+        bmp = &menu_icons[MENU_ICON_UNKNOWN].bmp;
+    }
+  }
+  else {
+    bmp = &menu_icons[MENU_ICON_PROBLEM].bmp;
   }
 
   graphics_context_set_text_color(ctx, GColorBlack);
   graphics_draw_bitmap_in_rect(ctx, bmp, GRect(4, 22, 12, 14));
   graphics_text_draw(ctx, line->name, fonts[FONT_ROW_HEADER], GRect(4, 0, 140, 18), 0, GTextAlignmentLeft, NULL);
-  graphics_text_draw(ctx, status_label, fonts[FONT_ROW_BODY], GRect(22, 19, 116, 18), 0, GTextAlignmentLeft, NULL);
+  graphics_text_draw(ctx, status_label, fonts[FONT_ROW_BODY], GRect(22, 19, 116, max(18, (18 * NumberOfSetBits(line->status)))), 0, GTextAlignmentLeft, NULL);
 }
 
 static void draw_tfl_single_line(GContext* ctx, char* text) {
@@ -465,3 +518,11 @@ int xatoi (char **str, long *res) {
   *res = val;
   return 1;
 }
+
+int NumberOfSetBits(int i)
+{
+    i = i - ((i >> 1) & 0x55555555);
+    i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
+    return (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
+}
+
