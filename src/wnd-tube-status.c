@@ -1,5 +1,5 @@
 /*
- * London Tube
+ * London Transport
  * Copyright (C) 2013 Matthew Tole
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -103,7 +103,7 @@ static TubeLine lines[] = {
  **/
 
 void wnd_tube_status_init() {
-  window_init(&window, "London Tube Window");
+  window_init(&window, "London Transport Window");
   window_set_window_handlers(&window, (WindowHandlers){
     .load = window_load,
     .unload = window_unload

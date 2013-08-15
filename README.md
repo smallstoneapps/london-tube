@@ -1,4 +1,4 @@
-### Pebble App | London Tube
+### Pebble App | London Transport
 
 This is an app for the [Pebble Smartwatch][1] which displays the current status of the [London Underground][2].
 
