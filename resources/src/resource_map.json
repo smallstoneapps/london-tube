@@ -9,6 +9,21 @@
       "file": "images/menu.png"
     },
     {
+      "defName": "MENU_ICON_THANKS",
+      "type": "png",
+      "file": "images/menu_thanks.png"
+    },
+    {
+      "defName": "MENU_ICON_TUBE",
+      "type": "png",
+      "file": "images/menu_tube.png"
+    },
+    {
+      "defName": "MENU_ICON_BUS",
+      "type": "png",
+      "file": "images/menu_bus.png"
+    },
+    {
       "defName": "MENU_OK",
       "type": "png",
       "file": "images/menu_tick_small.png"
@@ -27,7 +42,7 @@
       "defName": "FONT_TFL_BOLD_18",
       "type": "font",
       "file": "fonts/njfontsigning-medium.ttf",
-      "characterRegex": "[A-Za-z &']"
+      "characterRegex": "[A-Za-z &\\']"
     },
     {
       "defName": "FONT_TFL_15",

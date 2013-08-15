@@ -1,3 +1,25 @@
+/*
+ * Small Stone Apps Utilities
+ * Copyright (C) 2013 Matthew Tole
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
 #include "pebble_os.h"
 #include "pebble_app.h"
 #include "pebble_fonts.h"
@@ -43,13 +65,15 @@ void show_thanks_window() {
   window_stack_push(&window_thanks, true);
 }
 
-void send_thanks(char* app, char* version) {
+void send_thanks(char* app, int ver_maj, int ver_min) {
   DictionaryIterator* body;
-  HTTPResult result = http_out_get("http://api.pblweb.com/thanks/v1/thanks.php", true, HTTP_COOKIE_THANKS, &body);
+  HTTPResult result = http_out_get("http://api.pblweb.com/thanks/v1/thanks.php", HTTP_COOKIE_THANKS, &body);
   if (result != HTTP_OK) {
     return;
   }
   dict_write_cstring(body, 0, app);
-  dict_write_cstring(body, 1, version);
+  char version_str[10];
+  snprintf(version_str, sizeof(version_str), "%d-%d", ver_maj, ver_min);
+  dict_write_cstring(body, 1, version_str);
   result = http_out_send();
 }

@@ -1,3 +1,9 @@
 [submodule "src/httpebble-utils"]
 	path = src/httpebble-utils
 	url = git@github.com:smallstoneapps/httpebble-utils.git
+[submodule "src/httpebble"]
+	path = src/httpebble
+	url = https://github.com/Katharine/httpebble-watch
+[submodule "src/rockshot"]
+	path = src/rockshot
+	url = git@github.com:smallstoneapps/rockshot-pebble.git

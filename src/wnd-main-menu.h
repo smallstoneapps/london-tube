@@ -1,5 +1,5 @@
 /*
- * Small Stone Apps Utilities
+ * London Tube
  * Copyright (C) 2013 Matthew Tole
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -20,11 +20,10 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef SMALLSTONE_H
-#define SMALLSTONE_H
+#ifndef WND_MAIN_MENU_H
+#define WND_MAIN_MENU_H
 
-void send_thanks(char* app, int ver_maj, int ver_min);
-void create_thanks_window();
-void show_thanks_window();
+void wnd_main_menu_init();
+void wnd_main_menu_show();
 
-#endif // SMALLSTONE_H
+#endif // WND_MAIN_MENU_H
